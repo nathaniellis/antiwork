@@ -1,0 +1,45 @@
+---
+title: "RQ1 Network"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+
+library(igraph)
+library(dplyr)
+library(ggplot2)
+
+setwd('/Users/au02v/OneDrive/Desktop/JP197_R_Files/Project/csv files')
+
+subs <- read_csv("subreddit_network_data.csv", na = "NA")
+```
+
+```{r}
+unique(subs$subreddit)
+```
+
+```{r}
+
+# Aggregate the data into nodes and edgeweights: CURRENTLY WRONG. 
+df1 <- df2 <- subs
+
+fullouterjoinsubs <- merge(x=df1,y=df2,by="author",all=TRUE) %>% 
+  filter(!(subreddit.x == subreddit.y)) %>%        # Ensures no duplicates
+  group_by(subreddit.x, subreddit.y) %>%           # Group by individual nodes
+  count()                                          # get edgeweights by unique
+
+```
+
+```{r}
+# Create igraph object
+
+net <- graph_from_data_frame(d=fullouterjoinsubs, 
+                             vertices=unique(fullouterjoinsubs$subreddit.x), directed=T) 
+```
+
+```{r}
+write.csv(fullouterjoinsubs, file = '/Users/au02v/OneDrive/Desktop/JP197_R_Files/Project/csv files/subnet.csv')
+```
+
+
+

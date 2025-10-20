@@ -1,0 +1,44 @@
+---
+title: "Research Question 1"
+output: html_document
+---
+
+```{r}
+# Setup Chunk
+
+library(tidyverse)
+library(lubridate)
+library(ggplot2)
+
+# import datasets
+gdata <- read.csv("antiworkgrowthdata.csv", na = "NA")
+
+```
+
+```{r}
+g <- function(list){as.Date(list[c(TRUE,FALSE)],format='%m/%d/%Y')}
+Date <- strsplit(gdata$Data_Collected_At, ' ')
+Date <- lapply(Date,g)
+
+gdata <- gdata %>%
+  mutate('Date' = do.call('c',Date))
+
+
+```
+
+
+
+
+
+```{r}
+
+ggplot(gdata, aes(x = gdata$Date,y = gdata$Users)) +
+  geom_line(size = 1.5, color = ) 
+
+ggplot(gdata , aes(x = gdata$Date,y = gdata$Posts)) +
+  geom_line()
+
+ggplot(gdata , aes(x = gdata$Date,y = gdata$Comments)) +
+  geom_line()
+```
+

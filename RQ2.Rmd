@@ -1,0 +1,239 @@
+---
+title: "Untitled"
+output: html_document
+---
+
+
+```{r}
+library(tidyverse)
+library(lubridate)
+
+# set working directory temporarily
+setwd('/Users/au02v/OneDrive/Desktop/JP197_R_Files/Project/csv files')
+      
+# import datasets
+
+subredditgrowth <- read.csv("antiworkgrowthdata.csv", na = "NA")
+civemployment <- read.csv("antiwork_civilian_employment.csv", na = "NA")
+participation <-read.csv("antiwork_civil_laborforce_participation_rate.csv",na = "NA")
+employment <- read.csv("antiwork_employmentbyindustry.csv", na = "NA")
+coviddata <- read.csv("antiwork_totalcovidcases.csv", na = "NA")
+unemployment <- read.csv("antiwork_unemployment_no..csv", na = "NA")
+
+```
+
+```{r}
+# Essentially, we want to show 2 things:
+
+# One: People joined the subreddit during covid. (users/covid)
+# Two: People joined during difficult economic times. (users/covid)
+  # Make a note that the top userbase of antiwork is higher than other subreddits
+# Three: Activity increases more with economic than anything. (posts+comments/econ)
+
+```
+
+
+
+```{r}
+# Tidy growth dates
+
+#subreddit
+g <- function(list){as.Date(list[c(TRUE,FALSE)],format='%m/%d/%Y')}
+Datelist <- strsplit(subredditgrowth$Data_Collected_At, ' ')
+Datelist <- lapply(Datelist,g)
+
+subredditgrowth <- subredditgrowth %>%
+  mutate('DateF' = do.call('c',Datelist)) %>%
+  filter(DateF >= as.Date("2018/10/9"))
+
+
+civemployment <- civemployment %>%
+  mutate('DateF' = do.call('c',Datelist)) %>%
+  filter(DateF >= as.Date("2018/10/9"))
+
+coviddata <- coviddata %>%  
+    mutate(Date = seq(as.Date('2013-08-13'),as.Date('2022-01-21'),by = "day")) %>%
+    filter(Date <= as.Date('2022-01-18')) %>%
+  filter(Date >= as.Date("2018/10/9"))
+  
+employment <- employment %>%
+  mutate('DateF' = do.call('c',Datelist)) %>%
+  filter(DateF >= as.Date("2018/10/9"))
+
+participation <- participation %>%
+  mutate('DateF' = do.call('c',Datelist)) %>%
+  filter(DateF >= as.Date("2018/10/9"))
+
+unemployment <- unemployment %>%
+  mutate('DateF' = do.call('c',Datelist)) %>%
+  filter(DateF >= as.Date("2018/10/9"))
+
+```
+
+```{r}
+# Subreddit growth
+
+filtered <- subredditgrowth %>% filter(DateF >= as.Date("2018/10/9"))
+
+ggplot(filtered, aes(x = DateF, y = Posts)) +
+  geom_line(color = '#42a4f5')
+
+ggplot(filtered, aes(x = DateF, y = Comments)) +
+  geom_line(color = '#af79d4')
+
+ggplot(filtered, aes(x = DateF, y = Users)) +
+  geom_line(color = '#730045')
+```
+
+```{r}
+# Self Employment (civ)
+
+ggplot(civemployment, aes(x = as.Date(Date), y = as.integer(gsub(",", "", civemployment$Nonagricultural.self.employment)))) +
+  geom_line(color = '#af79d4')
+```
+
+```{r}
+# Covid cases
+
+ggplot(coviddata, aes(x = as.Date(Date), y = Total.Covid.Cases)) +
+  geom_line(color = '#af79d4')
+```
+
+```{r}
+# Employment
+
+filtered <- employment %>%
+  mutate(Total.nonfarm = as.integer(gsub(",", "", employment$Total.nonfarm)),
+            Total.private = as.integer(gsub(",", "", employment$Total.private)))
+
+ggplot(filtered, aes(x = as.Date(Date), y = Total.nonfarm)) +
+  geom_line(color = '#42a4f5')
+
+ggplot(filtered, aes(x = as.Date(Date), y = Total.private)) +
+  geom_line(color = '#af79d4')
+
+```
+
+```{r}
+# Labor force participation
+
+ggplot(participation, aes(x = as.Date(Date), y = Total)) +
+  geom_line(color = '#af79d4')
+
+```
+
+```{r}
+# Unemployment
+
+ggplot(unemployment, aes(x = as.Date(Date), y = as.integer(gsub(",", "", Total)))) +
+  geom_line(color = '#af79d4')
+```
+
+%#%#%#%#%#%#%#%%#%#%%%%%#%%#%%#%#%#%##%%#%#%%##%#%%#%#%#%##%#%#%%#%%#%#%#%#%#%#%
+%#%#%#%#%#%#%#%%#%#%%%%%#%%#%%#%#%#%##%%#%#%%##%#%%#%#%#%##%#%#%%#%%#%#%#%#%#%#%
+%#%#%#%#%#%#%#%%#%#%%%%%#%%#%%#%#%#%##%%#%#%%##%#%%#%#%#%##%#%#%%#%%#%#%#%#%#%#%
+RATED                           RATED                    RATED   
+  RATED          RATED                          RATED
+%#%#%#%#%#%#%#%%#%#%%%%%#%%#%%#%#%#%##%%#%#%%##%#%%#%#%#%##%#%#%%#%%#%#%#%#%#%#%
+%#%#%#%#%#%#%#%%#%#%%%%%#%%#%%#%#%#%##%%#%#%%##%#%%#%#%#%##%#%#%%#%%#%#%#%#%#%#%
+
+```{r}
+# subredditgrowth, rated
+
+rsg <- subredditgrowth %>% mutate('scaledUsers' = Users/max(Users,na.rm = T),
+                           'scaledPosts' = Posts/max(Posts,na.rm = T),
+                           'scaledComments' = Comments/max(Comments,na.rm = T)) %>%
+  select(DateF,scaledUsers,scaledPosts,scaledComments)
+```
+
+
+```{r}
+
+# Civemployment, rated.
+
+rce <- civemployment %>% 
+  mutate('scaledCVE' = 
+           as.integer(gsub(",", "",
+                           civemployment$Nonagricultural.self.employment))/(9555)) %>%
+  select(DateF,scaledCVE)
+
+max(as.integer(gsub(",", "", civemployment$Nonagricultural.self.employment)),na.rm = T)
+```
+
+```{r}
+# Covid, rated
+# rco : rated covid cases
+
+rco <- coviddata %>% mutate('scaledCOVID' = Total.Covid.Cases/max(Total.Covid.Cases,na.rm = T)) %>%
+  select(Date,scaledCOVID)
+```
+
+```{r}
+# Employment, rated
+# renf : rated nonfarm employment
+# rep  : rated private employment
+
+max(as.integer(gsub(",", "", employment$Total.nonfarm)),na.rm = T)
+
+renf <- employment %>% 
+  mutate('scaledEnf' = 
+           as.integer(gsub(",", "",
+                           employment$Total.nonfarm))/(152523))%>%
+  select(DateF,scaledEnf)
+
+max(as.integer(gsub(",", "", employment$Total.private)),na.rm = T)
+
+rep <- employment %>% 
+  mutate('scaledEp' = 
+           as.integer(gsub(",", "",
+                           employment$Total.private))/(129688)) %>%
+  select(DateF,scaledEp)
+```
+
+```{r}
+# Participation, rated
+# rpa : labor force participation
+
+rpa <- participation %>% mutate('scaledPart' = Total/max(Total,na.rm = T)) %>%
+  select(DateF,scaledPart)
+```
+
+```{r}
+# Unemployment, rated
+# runp : rated total unemployment
+
+max(as.integer(gsub(",", "", unemployment$Total)),na.rm = T)
+
+runp <- unemployment %>% 
+  mutate('scaledUNP' = 
+           as.integer(gsub(",", "",
+                           unemployment$Total))/(23038)) %>%
+  select(DateF,scaledUNP)
+```
+
+
+
+
+```{r}
+ggplot(rsg, aes(x = DateF, y = scaledPosts)) +
+  geom_line() +
+  geom_line(data = rce, aes(x = DateF, y = scaledCVE), color = 'red') +
+  geom_line(data = renf, aes(x = DateF, y = scaledEnf), color = 'green') +
+  geom_line(data = rep, aes(x = DateF, y = scaledEp), color = 'blue') +
+  geom_line(data = rpa, aes(x = DateF, y = scaledPart), color = '#af79d4')# +
+  #geom_line(data = runp, aes(x = DateF, y = scaledUNP), color = 'yellow')
+
+ggplot(rsg, aes(x = DateF, y = scaledPosts)) +
+  geom_line() +
+  geom_line(data = rco, aes(x = Date, y = scaledCOVID), color = 'red')
+```
+
+
+```{r}
+var(rce$scaledCVE, rsg$scaledPosts,na.rm = T)
+var(renf$scaledEnf, rsg$scaledPosts,na.rm = T)
+var(rep$scaledEp, rsg$scaledPosts,na.rm = T)
+var(rpa$scaledPart, rsg$scaledPosts,na.rm = T)
+print('i hate it here')
+var(rco$scaledCOVID, rsg$scaledPosts,na.rm = T)
+```

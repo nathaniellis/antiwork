@@ -1,0 +1,186 @@
+---
+title: "rq4"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(lubridate)
+library(tidytext)
+
+# set working directory temporarily
+setwd('/Users/au02v/OneDrive/Desktop/JP197_R_Files/Project/csv files')
+      
+# import datasets
+labordata <- read.csv("StrikeTrackerData.csv", na = "NA")
+comments <- read.csv("r antiwork_comments.csv", na = "NA")
+```
+
+FORMATTING LABORDATA
+##########################################################################
+```{r}
+# Replace 0 values in To list with current date
+labordata <- labordata %>%
+  mutate(To = replace(To, To == 0, "1/25/2022")) %>%
+  mutate(From = mdy(From), To = mdy(To)) # Format dates as date objects
+
+labordata$To[895] = mdy("03-23-2021")
+
+labordata <- labordata %>% unique()
+
+```
+
+
+REVA'S WORD COUNTING CODE
+#######################################################################
+
+
+
+FORMATTING COMMENTS
+######################################################################
+```{r}
+# Create date object column
+comments <- comments %>%
+  mutate(created_datetime = as.Date(as_datetime(created_utc)))
+```
+
+```{r}
+# Get comments by date
+j <- comments %>%
+  filter(created_datetime == as.Date('2021-01-19')) %>%
+  select(created_datetime, body)
+```
+
+WORD COUNTING
+########################################################################
+```{r}
+# Get list of words from labordata
+wordlisting <- labordata %>%
+  mutate(wordlist = paste(Employer,LaborOrganization)) %>%
+  select(Employer,LaborOrganization,wordlist)
+```
+
+```{r}
+# It's not elegant code, but it's functional code.
+# Gets rid of non-alphanumeric characters. 
+wordlisting$wordlist <- sub('[\\(]', "", wordlisting$wordlist)
+wordlisting$wordlist <- sub('[\\)]', "", wordlisting$wordlist)
+wordlisting$wordlist <- sub('[\\-]', "", wordlisting$wordlist)
+wordlisting$wordlist <- sub('[\\,]', "", wordlisting$wordlist)
+
+# Gets rid of stopwords that return unneccessary values.
+wordlisting$wordlist <- sub('School', "", wordlisting$wordlist)
+wordlisting$wordlist <- sub('student', "", wordlisting$wordlist)
+wordlisting$wordlist <- sub('The', "", wordlisting$wordlist)
+wordlisting$wordlist <- sub('and', "", wordlisting$wordlist)
+wordlisting$wordlist <- sub('met', "", wordlisting$wordlist)
+wordlisting$wordlist <- sub('of', "", wordlisting$wordlist)
+wordlisting$wordlist <- sub('workers', "", wordlisting$wordlist)
+wordlisting$wordlist <- sub('american', "", wordlisting$wordlist)
+wordlisting$wordlist <- sub('place', "", wordlisting$wordlist)
+wordlisting$wordlist <- sub(NA, "", wordlisting$wordlist)
+```
+
+```{r}
+
+# Formats the word list into a concatenated string
+wordvec <- unlist(strsplit(wordlisting$wordlist[1], ' '))   # chr vector of split
+wordvec <- wordvec[!grepl(r'[^$]',wordvec,ignore.case = T)] # gets rid of empty str
+
+wordstring <- paste(wordvec, collapse = '|')                # concatenates
+```
+
+
+```{r}
+# Get date range
+seq(labordata$From[1],labordata$To[1],by = "day")
+
+
+# Gets comments on a date
+commentrange <- comments %>%
+                 filter(created_datetime == as.Date('2021-01-19')) %>%
+                 select(body)
+
+# Filters by that date, then filters by if they contain a keyword
+comments %>%
+  filter(created_datetime == as.Date('2021-01-19')) %>%
+  filter(grepl(wordstring,commentrange$body,ignore.case = T)) %>%
+  n_distinct()
+
+
+```
+
+nested for loop:
+  iterates per strike
+    per day of strike
+    
+  returns:
+  
+  strike------day of strike--------number of mentions that day.
+  to be row-bound (rbind) to empty dataframe
+
+```{r}
+#for loops
+hitsdf <- data.frame('strike','strikedate','nummentions')
+
+for(nstrike in 1:length(labordata$To)){
+  # Get range of dates
+  daterange <- seq(labordata$From[nstrike],labordata$To[nstrike],by = "day")
+  # Formats the word list into a concatenated string
+  wordvec <- unlist(strsplit(wordlisting$wordlist[nstrike], ' ')) # chr vec of split
+  wordvec <- wordvec[!grepl(r'[^$]',wordvec,ignore.case = T)] # gets rid of empty str
+  wordstring <- paste(wordvec, collapse = '|')  
+  
+  for (dia in 1:length(daterange)){
+    daya = daterange[dia]
+    # Gets comments on a date
+          commentrange <- comments %>%
+                 filter(created_datetime == daya) %>%
+                 select(body)
+    # Filters by that date, then filters by if they contain a keyword, returns n
+          nhits <- comments %>%
+            filter(created_datetime == daya) %>%
+            filter(grepl(wordstring,commentrange$body,ignore.case = T))  %>%
+            n_distinct()
+          
+    hitsdf <- rbind(hitsdf,list(nstrike,daya,nhits))
+    
+  }
+  print(nstrike)
+}
+```
+
+
+
+```{r}
+l <- hitsdf %>%
+  filter(!(X.strike. == X.strike.[1])) %>%
+  group_by(X.strike.) %>%
+  summarize('total' = sum(as.integer(X.nummentions.))) %>%
+  arrange(desc(total))
+
+j <- hitsdf %>%
+  filter(!(X.strike. == X.strike.[1]))
+```
+
+```{r}
+f = function(nn){
+print(labordata$Employer[nn])
+print(labordata$LaborOrganization[nn])
+}
+
+f(461)
+```
+
+```{r}
+quantile(as.integer(j$X.nummentions.))
+
+ggplot(j, aes(x=(as.integer(j$X.nummentions.)))) + 
+  geom_histogram(binwidth=10, color = 'blue') + 
+  scale_y_log10() + 
+  coord_cartesian(
+  xlim = NULL,
+  ylim = c(10,5000))
+
+```
+
